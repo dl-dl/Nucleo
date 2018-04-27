@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Project>
+<ProjectName>D:\Workall\Devices\GPS\Nucleo\\Nucleo</ProjectName>
+<ProjectNature>C</ProjectNature> 
+<CMSIS>..\Drivers\CMSIS</CMSIS>
+<HAL_Driver>C:\Users\Admin\STM32Cube\Repository\STM32Cube_FW_L4_V1.11.0\Drivers\CMSIS</HAL_Driver>
+<Toolchain>MDK-ARM</Toolchain>
+	<Toolversion>5</Toolversion>
+<Version>0</Version>
+
+<filestoremove>
+    <file>
+    <name>..\Drivers\CMSIS\Device\ST\STM32L4xx\Source\Templates\arm\startup_stm32l4r5xx.s</name>
+    </file>
+</filestoremove>
+
+<inctoremove>
+	<Aincludes>
+	   <include></include>
+    </Aincludes>
+	<Cincludes>
+    </Cincludes>
+</inctoremove>
+
+<configs>
+  <config>
+    <name>Nucleo</name>				
+    <device>STM32L4R5ZITx</device>		 
+    <heapSize>0x200</heapSize>
+    <stackSize>0x400</stackSize>
+    
+    	<cpuclock>100</cpuclock>
+    	<board>NUCLEO-L4R5ZI</board>
+			
+    <usedDebug>true</usedDebug>
+    	<debugprobe>swd</debugprobe>
+    <optimization></optimization>
+    <icfloc>0</icfloc>
+    <Adefines>
+        <define></define>
+    </Adefines>   
+
+    <UsedFreeRTOS></UsedFreeRTOS>
+    <Aincludes>
+
+
+	    	<include></include>
+    </Aincludes>
+    <Cdefines>
+        <define>USE_FULL_LL_DRIVER</define>
+    </Cdefines>
+    <definestoremove>
+        <Adefines>
+            <define></define>
+        </Adefines>
+        <Cdefines>
+            <define>USE_HAL_DRIVER</define>
+            <define>MBEDTLS_CONFIG_FILE=&lt;mbedtls_config.h&gt;</define>
+        </Cdefines>         
+    </definestoremove>
+    
+	<Cincludes>
+	   <include>..\Inc</include>
+	   <include>..\Drivers\STM32L4xx_HAL_Driver\Inc</include>
+	   <include>..\Drivers\CMSIS\Device\ST\STM32L4xx\Include</include>
+	   <include>..\Drivers\CMSIS\Include</include>
+
+    </Cincludes>
+      </config>
+    </configs> 
+
+    <underRoot>false</underRoot>
+
+	   <group>
+	    <name>Drivers</name> 
+		   <group>
+		 		<name>STM32L4xx_HAL_Driver</name>
+						<file>
+							<name>../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_utils.c</name>
+						</file>
+						<file>
+							<name>../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_exti.c</name>
+						</file>
+						<file>
+							<name>../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_gpio.c</name>
+						</file>
+						<file>
+							<name>../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_exti.c</name>
+						</file>
+						<file>
+							<name>../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_pwr.c</name>
+						</file>
+		    </group>
+		    <group>
+		    	<name>CMSIS</name>
+							<file>
+								<name>../\Src/system_stm32l4xx.c</name>
+							</file>
+		    	</group>
+	  </group>   
+	  <group>
+	  <name>Application</name>
+	    <group>
+	      <name>User</name>  
+                                <file>
+                                 <name>..\Src\main.c</name>
+                                </file>
+
+                                <file>
+                                 <name>..\Src\gpio.c</name>
+                                </file>
+
+                                <file>
+                                 <name>..\Src\stm32l4xx_it.c</name>
+                                </file>
+
+
+
+
+</group> 
+  </group>
+</Project>
