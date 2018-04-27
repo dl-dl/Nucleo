@@ -10,7 +10,7 @@ static int lfs_bd_read(const struct lfs_config *c, lfs_block_t block,
 {
 //	BlockDevice *bd = (BlockDevice *)c->context;
 //	return bd->read(buffer, (bd_addr_t)block*c->block_size + off, size);
-	return SDReadBlocks(buffer, block, size / BLOCK_SIZE, 1000) ? 0 : size;
+	return SDReadBlocks(buffer, block, size / BLOCK_SIZE) ? 0 : size;
 }
 
 static int lfs_bd_prog(const struct lfs_config *c, lfs_block_t block,
