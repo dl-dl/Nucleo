@@ -1,8 +1,14 @@
 /**
   ******************************************************************************
-  * @file    stm32l4xx_it.h
-  * @brief   This file contains the headers of the interrupt handlers.
+  * File Name          : SPI.h
+  * Description        : This file provides code for the configuration
+  *                      of the SPI instances.
   ******************************************************************************
+  ** This notice applies to any and all portions of this file
+  * that are not between comment pairs USER CODE BEGIN and
+  * USER CODE END. Other portions of this file, whether 
+  * inserted by the user or by software development tools
+  * are owned by their respective copyright owners.
   *
   * COPYRIGHT(c) 2018 STMicroelectronics
   *
@@ -30,33 +36,56 @@
   *
   ******************************************************************************
   */
-
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __STM32L4xx_IT_H
-#define __STM32L4xx_IT_H
-
+#ifndef __spi_H
+#define __spi_H
 #ifdef __cplusplus
  extern "C" {
-#endif 
+#endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32l4xx.h"
-#include "stm32l4xx_ll_system.h"
-#include "stm32l4xx_ll_gpio.h"
-#include "stm32l4xx_ll_exti.h"
+#include "stm32l4xx_ll_spi.h"
 #include "main.h"
-/* Exported types ------------------------------------------------------------*/
-/* Exported constants --------------------------------------------------------*/
-/* Exported macro ------------------------------------------------------------*/
-/* Exported functions ------------------------------------------------------- */
 
-void SysTick_Handler(void);
-void DMA1_Channel3_IRQHandler(void);
+/* USER CODE BEGIN Includes */
+#include "types.h"
+
+/* USER CODE END Includes */
+
+/* USER CODE BEGIN Private defines */
+
+/* USER CODE END Private defines */
+
+extern void _Error_Handler(char *, int);
+
+void MX_SPI1_Init(void);
+void MX_SPI2_Init(void);
+void MX_SPI3_Init(void);
+
+/* USER CODE BEGIN Prototypes */
+void SPI1Write(uint8_t *pData, uint16_t len);
+void SPI1WriteDMA(uint8_t *pData, uint16_t len);
+
+void SPI1Read(uint8_t *pData, uint16_t len);
+void SPI2Write(uint8_t *pData, uint16_t len);
+void SPI2Read(uint8_t *pData, uint16_t len);
+void RadioWrite(ui8 regAddr, ui8 redData);
+void RadioWrites(ui8 regAddr, ui8 *regData, ui8 len);
+ui8  RadioRead(ui8 regAddr);
+void RadioReads(ui8 regAddr, ui8 *regData, ui8 len);
+/* USER CODE END Prototypes */
 
 #ifdef __cplusplus
 }
 #endif
+#endif /*__ spi_H */
 
-#endif /* __STM32L4xx_IT_H */
+/**
+  * @}
+  */
+
+/**
+  * @}
+  */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

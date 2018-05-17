@@ -116,7 +116,7 @@ ui32 SDSendCommand(ui32 command, ui32 argument, ui32 respType)
 {
  ui32 response;
  ui32 flags;
- __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);
+ SDClearFlag();
  
  switch ( respType )
   {
@@ -151,13 +151,13 @@ ui32 SDSendCommand(ui32 command, ui32 argument, ui32 respType)
  while ( 1 )
   {
    if (cnt-- == 0)
-    {__SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);        //Clear flags
+    {SDClearFlag();        //Clear flags
      return(SDMMC_ERROR_TIMEOUT);
     }
    resFlags = SDMMC1->STA & flags;
    
    if ( resFlags & SDMMC_FLAG_CCRCFAIL )
-    {__SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);        //Clear flags
+    {SDClearFlag();        //Clear flags
      return(SDMMC_ERROR_CMD_CRC_FAIL);
     } 
    if ( resFlags ) 
@@ -165,7 +165,7 @@ ui32 SDSendCommand(ui32 command, ui32 argument, ui32 respType)
    LL_mDelay(10);  
   } 
 
- __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);        //Clear flags
+ SDClearFlag();        //Clear flags
  
  SDResp[0] = SDMMC1->RESP1;
  SDResp[1] = SDMMC1->RESP2;
@@ -336,7 +336,7 @@ ui32 SDSetCardCSD(ui32 csd[4])
   }
  else
   {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);   
+   SDClearFlag();   
    return(1);
   }
   
@@ -400,8 +400,8 @@ ui32 SDWaitState(ui8 sdState)
     }
    LL_mDelay(10); 
   }
- __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);
- return SDMMC_ERROR_NONE;
+ SDClearFlag();
+ return(errorstate);// SDMMC_ERROR_NONE;
 } 
 //-----------------------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------------------
@@ -410,13 +410,13 @@ ui32 SDInit()
  SDCard.Enable = false;
  LL_GPIO_InitTypeDef GPIO_InitStruct;
 
- SET_BIT(RCC->PLLCFGR,  RCC_PLLCFGR_PLLPEN);                                      //Enable PLLP;
- MODIFY_REG(RCC->CCIPR2,RCC_CCIPR2_SDMMCSEL, LL_RCC_SDMMC1_KERNELCLKSOURCE_PLLP); //Select PLLP as Clk for SDMMC
-
+ //SET_BIT(RCC->PLLCFGR,  RCC_PLLCFGR_PLLPEN);                                      //Enable PLLP;
+ //MODIFY_REG(RCC->CCIPR2,RCC_CCIPR2_SDMMCSEL, LL_RCC_SDMMC1_KERNELCLKSOURCE_PLLP); //Select PLLP as Clk for SDMMC
+ MODIFY_REG(RCC->CCIPR2,RCC_CCIPR2_SDMMCSEL, LL_RCC_SDMMC1_KERNELCLKSOURCE_48CLK);//
  __IO uint32_t tmpreg;
  SET_BIT(RCC->AHB2ENR, RCC_AHB2ENR_SDMMC1EN);             // SD_CLK_ENABLE();
  tmpreg = READ_BIT(RCC->AHB2ENR, RCC_AHB2ENR_SDMMC1EN);   // Delay after an RCC peripheral clock enabling
- //UNUSED(tmpreg);
+ //void(tmpreg);
 
  /**SDMMC1 GPIO Configuration    
   PC8     ------> SDMMC1_D0
@@ -536,12 +536,18 @@ ui32 SDInit()
    return(1);
 
  // Initialize SDMMC peripheral interface with default configuration
+ ui32 tReg = SDMMC1->CLKCR;
+ tReg &= 0xFFC02C00; // Reserved bits
+ tReg |= 0x00004000; //4B
+ tReg |= 0x00000001; //Div
+ SDMMC1->CLKCR = tReg; 
+ /*
  MODIFY_REG(SDMMC1->CLKCR, CLKCR_CLEAR_MASK, SDMMC_CLOCK_EDGE_RISING              |\
                                              SDMMC_CLOCK_POWER_SAVE_DISABLE       |\
                                              SDMMC_BUS_WIDE_4B                    |\
                                              SDMMC_HARDWARE_FLOW_CONTROL_DISABLE  |\
-                                             1);  //SDMMC_INIT_CLK_DIV
- 
+                                             1);  //SDMMC CLK DIV
+ */
  SDCard.Enable = true;
  return(SDMMC_ERROR_NONE); 
 }
@@ -549,19 +555,23 @@ ui32 SDInit()
 //-----------------------------------------------------------------------------------------------------
 ui32 SDWriteBlocks(const ui8 *pData, ui32 BlockAdd, ui32 NumberOfBlocks)
 {
+ if ( (BlockAdd + NumberOfBlocks) > SDCard.LogBlockNbr )
+   return(1);
+
  if ( !SDCard.Enable )
   return(1);
+ 
+ if ( SDWaitState(SD_STATE_TRAN) )
+  {SDClearFlag();
+   return(1);
+  } 
 
  ui32 Timeout = SDMMC_CMDTIMEOUT;
- //SDMMC_DataInitTypeDef config;
  uint32_t errorstate;
  uint32_t tickstart = MainTick;
  uint32_t count = 0;
  uint32_t *tempbuff = (uint32_t *)pData;
  
- if((BlockAdd + NumberOfBlocks) > (SDCard.LogBlockNbr))
-   return(1);
-    
  // Initialize data control register
  SDMMC1->DCTRL = 0;
      
@@ -569,15 +579,14 @@ ui32 SDWriteBlocks(const ui8 *pData, ui32 BlockAdd, ui32 NumberOfBlocks)
    BlockAdd *= BLOCKSIZE;
     
  errorstate = SDSendCommand(SDMMC_CMD_SET_BLOCKLEN, BLOCKSIZE, RESP_R1);
+ SDClearFlag();  
  if ( errorstate != SDMMC_ERROR_NONE )
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);  
    return(1);
-  }
     
  // Configure the SD DPSM (Data Path State Machine)
  SDMMC1->DTIMER = SDMMC_DATATIMEOUT; // Set the SDMMC Data TimeOut value
  SDMMC1->DLEN = NumberOfBlocks * BLOCKSIZE; // Set the SDMMC DataLength value
+ 
  // Set the SDMMC data configuration parameters
  MODIFY_REG(SDMMC1->DCTRL, DCTRL_CLEAR_MASK,SDMMC_DATABLOCK_SIZE_512B  |\
                                             SDMMC_TRANSFER_DIR_TO_CARD |\
@@ -593,85 +602,80 @@ ui32 SDWriteBlocks(const ui8 *pData, ui32 BlockAdd, ui32 NumberOfBlocks)
    errorstate = SDMMC_CmdWriteSingleBlock(SDMMC1, BlockAdd);
 
  if ( errorstate != SDMMC_ERROR_NONE )
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);  
    return(1);
-  }
     
  // Write block(s) in polling mode
-  while(!__SDMMC_GET_FLAG(SDMMC1, SDMMC_FLAG_TXUNDERR | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DATAEND))
-   {
-    if(__SDMMC_GET_FLAG(SDMMC1, SDMMC_FLAG_TXFIFOHE))
-     {
-      for(count = 0U; count < 8U; count++)
-        SDWriteFIFO(tempbuff + count);
+ while ( 1 )
+  {
+   __IO ui32 flags = SDMMC1->STA;
 
-      tempbuff += 8U;
-     }
-      
-    if ( (MainTick - tickstart) >=  Timeout  )
-     {
-      __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);  
-      return(1);
-     }
-   }
-// __SDMMC_CMDTRANS_DISABLE(SDMMC1);
- SDMMC1->CMD &= ~SDMMC_CMD_CMDTRANS;
-
-
- // Send stop transmission command in case of multiblock write
- if(__SDMMC_GET_FLAG(SDMMC1, SDMMC_FLAG_DATAEND) && (NumberOfBlocks > 1U))
-  { 
-   // Send stop transmission command
-   errorstate = SDMMC_CmdStopTransfer(SDMMC1);
-   if ( errorstate != SDMMC_ERROR_NONE )
-    {
-     __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);  
+   if ( (MainTick - tickstart) >=  Timeout  )
+    {SDClearFlag();  
      return(1);
     }
+
+   if ( flags & (SDMMC_FLAG_TXUNDERR | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_DTIMEOUT) )  
+    {SDClearFlag();
+     return(1);
+    }
+
+   if ( flags & SDMMC_FLAG_TXFIFOHE )
+    {for(count = 0U; count < 8U; count++)
+        SDWriteFIFO(tempbuff + count);
+
+     tempbuff += 8U;
+    }
+   
+   if ( flags & SDMMC_FLAG_DATAEND )
+    {SDClearFlag();
+     break;
+    }    
   }
 
-  // Get error state
- if( __SDMMC_GET_FLAG(SDMMC1, SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_TXUNDERR) )
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);
-   return(1);
+ SDMMC1->CMD &= ~SDMMC_CMD_CMDTRANS;  // SDMMC CMDTRANS DISABLE
+
+ if ( NumberOfBlocks > 1U )
+  {errorstate = SDMMC_CmdStopTransfer(SDMMC1);    // Send stop transmission command
+   if ( errorstate != SDMMC_ERROR_NONE )
+     return(1);
   }
- __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);
- 
- errorstate = SDWaitState(SD_STATE_TRAN);
- return(errorstate);
+ return(SDMMC_ERROR_NONE);
 }
+//-----------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------
+ui32 ReadTime[800];
+ui32 ReadCnt;
 
-//-----------------------------------------------------------------------------------------------------
-//-----------------------------------------------------------------------------------------------------
 ui32 SDReadBlocks(ui8 *pData, ui32 BlockAdd, ui32 NumberOfBlocks)
 {
+ ReadTime[ReadCnt] = 0;
+ if ( (NumberOfBlocks == 0) || ((BlockAdd + NumberOfBlocks) > SDCard.LogBlockNbr) )
+   return(1);
+
  if ( !SDCard.Enable )
   return(1);
 
- ui32 Timeout = SDMMC_CMDTIMEOUT;
+ if ( SDWaitState(SD_STATE_TRAN) )
+  {SDClearFlag();  
+   return(1);
+  } 
 
+ ui32 Timeout = SDMMC_CMDTIMEOUT;
  uint32_t errorstate;
  uint32_t tickstart = MainTick;
  uint32_t count = 0, *tempbuff = (uint32_t *)pData;
-  
- if((BlockAdd + NumberOfBlocks) > SDCard.LogBlockNbr)
-   return(1);
 
-  /* Initialize data control register */
+ // Initialize data control register
  SDMMC1->DCTRL = 0;
     
  if ( SDCard.CardType != CARD_SDHC_SDXC )
    BlockAdd *= BLOCKSIZE;
-      
- /* Set Block Size for Card */
+
+ // Set Block Size for Card
  errorstate = SDSendCommand(SDMMC_CMD_SET_BLOCKLEN, BLOCKSIZE, RESP_R1);      //
+ SDClearFlag();
  if ( errorstate != SDMMC_ERROR_NONE )
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);
    return(1);
-  }
     
  // Configure the SD DPSM (Data Path State Machine)
  SDMMC1->DTIMER = SDMMC_DATATIMEOUT;          // Set the SDMMC Data TimeOut value
@@ -686,123 +690,192 @@ ui32 SDReadBlocks(ui8 *pData, ui32 BlockAdd, ui32 NumberOfBlocks)
  SDMMC1->CMD |= SDMMC_CMD_CMDTRANS;       //CMDTRANS_ENABLE
  
  if(NumberOfBlocks > 1)
-   SDMMC_CmdReadMultiBlock(SDMMC1, BlockAdd); // Read Multi Block command
+   errorstate = SDMMC_CmdReadMultiBlock(SDMMC1, BlockAdd); // Read Multi Block command
  else
    errorstate = SDMMC_CmdReadSingleBlock(SDMMC1, BlockAdd); // Read Single Block command
 
  if ( errorstate != SDMMC_ERROR_NONE )
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);
    return(1);
-  }
       
- /* Poll on SDMMC flags */
- while(!__SDMMC_GET_FLAG(SDMMC1, SDMMC_FLAG_RXOVERR | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DATAEND))
+ ui32 rCnt = 0;
+ while ( 1 )
   {
-   if( __SDMMC_GET_FLAG(SDMMC1, SDMMC_FLAG_RXFIFOHF))
-    {
-     /* Read data from SDMMC Rx FIFO */
-     for(count = 0U; count < 8U; count++)
-      {     
-       *(tempbuff + count) = SDReadFIFO();
-      }
-     tempbuff += 8U;
-    }
+   __IO ui32 flags = SDMMC1->STA;
    if ( (MainTick - tickstart) >=  Timeout)
-    {
-     __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);
+    {SDClearFlag();
      return(SDMMC_ERROR_DATA_TIMEOUT);
     }
+   if ( flags & (SDMMC_FLAG_RXOVERR | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_DTIMEOUT) )
+    {SDClearFlag();
+     return(1);
+    }
+   if ( flags & SDMMC_FLAG_RXFIFOHF )
+    {for(count = 0U; count < 8U; count++)
+      {*(tempbuff + count) = SDReadFIFO();   // Read data from Rx FIFO 
+      }
+     tempbuff += 8U;
+     
+     rCnt += 8;
+     if ( rCnt >= 512 )
+      {ReadTime[ReadCnt++] = MainTick - tickstart;
+       rCnt = 0;
+      }
+  
+    }
+   if ( flags & SDMMC_FLAG_DATAEND )
+    {SDClearFlag();
+     break;
+    }  
   }
  SDMMC1->CMD &= ~SDMMC_CMD_CMDTRANS;   //CMDTRANS_DISABLE
    
- /* Send stop transmission command in case of multiblock read */
- if (__SDMMC_GET_FLAG(SDMMC1, SDMMC_FLAG_DATAEND) && (NumberOfBlocks > 1U) )
-  {    
-   errorstate = SDMMC_CmdStopTransfer(SDMMC1);
+ // Send stop transmission command in case of multiblock read
+ if ( NumberOfBlocks > 1U )
+  {errorstate = SDMMC_CmdStopTransfer(SDMMC1);
    if ( errorstate != SDMMC_ERROR_NONE )
-    {
-     __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);
      return(1);
-    }
   }
-
- /* Get error state */
- if ( __SDMMC_GET_FLAG(SDMMC1, SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_RXOVERR) )
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);
-   return(1);
-  }
- __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_DATA_FLAGS);
  
- errorstate = SDWaitState(SD_STATE_TRAN);
- return(errorstate);
+ 
+ 
+ return(SDMMC_ERROR_NONE);
+
+/*
+ // Get error state
+ errorstate = SDGetFlag(SDMMC_FLAG_DTIMEOUT | SDMMC_FLAG_DCRCFAIL | SDMMC_FLAG_RXOVERR);
+ SDClearFlag();
+ 
+ if ( errorstate  )
+   return(1);
+ else
+   return(SDMMC_ERROR_NONE);
+*/   
 }
 //-----------------------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------------------
 ui32 SDErase(ui32 BlockStartAdd, ui32 BlockEndAdd)
 {
- ui32 Timeout = SDMMC_CMDTIMEOUT;
+ if ( BlockEndAdd < BlockStartAdd || BlockEndAdd > SDCard.LogBlockNbr )
+   return(1);
 
+ if ( !SDCard.Enable )
+   return(1); 
+
+ if ( SDWaitState(SD_STATE_TRAN) )
+  {SDClearFlag();
+   return(1);
+  }  
+
+ ui32 Timeout = SDMMC_CMDTIMEOUT;
  uint32_t tickstart = MainTick;
  uint32_t errorstate;
  
- if ( !SDCard.Enable )
-  return(1); 
-
- if ( BlockEndAdd < BlockStartAdd )
-   return(1);
-    
- if ( BlockEndAdd > SDCard.LogBlockNbr )
-   return (1);
-    
-   
- /*
- // Check if the card command class supports erase command
- if (  (SDCard.Class & SDMMC_CCCC_ERASE) == 0U)
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);
-   return (1);
-  }
- */   
  if ( (SDMMC_GetResponse(SDMMC1, SDMMC_RESP1) & SDMMC_CARD_LOCKED) == SDMMC_CARD_LOCKED )
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS);  
+  {SDClearFlag();  
    return (1);
   }
     
  // Get start and end block for high capacity cards
  if(SDCard.CardType != CARD_SDHC_SDXC)
-  {
-   BlockStartAdd *= BLOCKSIZE;
+  {BlockStartAdd *= BLOCKSIZE;
    BlockEndAdd   *= BLOCKSIZE;
   }
     
  errorstate = SDSendCommand(SDMMC_CMD_SD_ERASE_GRP_START, BlockStartAdd, RESP_R1);
+ SDClearFlag(); 
  if ( errorstate != SDMMC_ERROR_NONE )
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS); 
    return (1);
-  }
       
  errorstate = SDSendCommand(SDMMC_CMD_SD_ERASE_GRP_END, BlockEndAdd, RESP_R1);
+ SDClearFlag(); 
  if ( errorstate != SDMMC_ERROR_NONE)
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS); 
    return (1);
-  }
 
  errorstate = SDSendCommand(SDMMC_CMD_ERASE, 0, RESP_R1b);
- if(errorstate != SDMMC_ERROR_NONE)
-  {
-   __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS); 
+ SDClearFlag(); 
+ if ( errorstate != SDMMC_ERROR_NONE )
    return (1);
-  }
- __SDMMC_CLEAR_FLAG(SDMMC1, SDMMC_STATIC_FLAGS); 
- 
- 
- errorstate = SDWaitState(SD_STATE_TRAN);
- return(errorstate);
+
+ return(SDMMC_ERROR_NONE);
 }
 //-----------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------
+ui8 SDData[512*800];
+
+ui32 SDTest()
+{
+ 
+// if ( SDWriteBlocks(SDData,3000,800) )
+//   return(1);
+
+ ReadCnt = 0;
+ if ( SDReadBlocks(SDData, 5000, 800) )
+   return(1);
+/* 
+ if ( SDReadBlocks(SDData, 500, 400) )
+   return(1);
+ if ( SDReadBlocks(SDData, 900, 400) )
+   return(1);
+ if ( SDReadBlocks(SDData, 1300, 400) )
+   return(1);
+ if ( SDReadBlocks(SDData, 1700, 400) )
+   return(1);
+ if ( SDReadBlocks(SDData, 2100, 400) )
+   return(1);
+ if ( SDReadBlocks(SDData, 2500, 400) )
+   return(1);
+ if ( SDReadBlocks(SDData, 2900, 400) )
+   return(1);
+ if ( SDReadBlocks(SDData, 3300, 400) )
+   return(1);
+ if ( SDReadBlocks(SDData, 3700, 400) )
+   return(1);
+*/
+/*
+ if ( SDWriteBlocks(SDData, 100,400) )
+   return(1);
+*/ 
+ /*  
+ 
+ for ( ui16 cnt = 0; cnt < 2048; cnt++ )  SDData[cnt] = 0xEE;
+ 
+ if ( SDReadBlocks(SDData, 35, 1) )
+   return(1);
+ if ( SDReadBlocks(SDData, 36, 1) )
+   return(1);
+ if ( SDReadBlocks(SDData, 35, 2) )
+   return(1);
+ if ( SDReadBlocks(SDData, 37, 2) )
+   return(1);
+
+ for ( ui16 cnt = 0; cnt < 2048; cnt++ )  SDData[cnt] = 0x55;
+
+ if ( SDWriteBlocks(SDData, 35, 1) )
+   return(1);
+
+ if ( SDWriteBlocks(SDData, 35, 2) )
+   return(1);
+
+ for ( ui16 cnt = 0; cnt < 2048; cnt++ )  SDData[cnt] = 0xAA;
+ if ( SDWriteBlocks(SDData, 37, 2) )
+   return(1);
+
+ for ( ui16 cnt = 0; cnt < 2048; cnt++ )  SDData[cnt] = 0;
+ if ( SDReadBlocks(SDData, 35, 2) )
+   return(1);
+
+ for ( ui16 cnt = 0; cnt < 2048; cnt++ )  SDData[cnt] = 0;
+ if ( SDReadBlocks(SDData, 37, 2) )
+   return(1);
+
+ if ( SDErase(36, 37) )
+   return(1);
+
+ if ( SDReadBlocks(SDData, 35, 2) )
+   return(1);
+ if ( SDReadBlocks(SDData, 37, 2) )
+   return(1);
+ */  
+ return(SDMMC_ERROR_NONE);
+}
 //-----------------------------------------------------------------------------------------------------

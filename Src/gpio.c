@@ -74,20 +74,20 @@ void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOC);
+  LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
   LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOB);
   LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOD);
   LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOG);
   LL_PWR_EnableVddIO2();
-  LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
 
   /**/
-  LL_GPIO_ResetOutputPin(GPIOB, RedLed_Pin|BlueLed_Pin);
+  LL_GPIO_ResetOutputPin(GPIOB, MAG_CS_Pin|RedLed_Pin|BlueLed_Pin);
 
   /**/
-  LL_GPIO_ResetOutputPin(USBPower_GPIO_Port, USBPower_Pin);
+  LL_GPIO_ResetOutputPin(GPIOG, USBPower_Pin|RADIO_CS_Pin|rReset_Pin);
 
   /**/
-  LL_GPIO_ResetOutputPin(GreenLed_GPIO_Port, GreenLed_Pin);
+  LL_GPIO_ResetOutputPin(GPIOC, XL_CS_Pin|GreenLed_Pin);
 
   /**/
   GPIO_InitStruct.Pin = Button1_Pin;
@@ -96,7 +96,7 @@ void MX_GPIO_Init(void)
   LL_GPIO_Init(Button1_GPIO_Port, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = RedLed_Pin|BlueLed_Pin;
+  GPIO_InitStruct.Pin = MAG_CS_Pin|RedLed_Pin|BlueLed_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
@@ -113,18 +113,24 @@ void MX_GPIO_Init(void)
   LL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = USBOver_Pin;
+  GPIO_InitStruct.Pin = DISPLAY_BUSY_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  LL_GPIO_Init(USBOver_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
+  LL_GPIO_Init(DISPLAY_BUSY_GPIO_Port, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = USBPower_Pin;
+  GPIO_InitStruct.Pin = USBOver_Pin|DIO0_Pin;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  LL_GPIO_Init(GPIOG, &GPIO_InitStruct);
+
+  /**/
+  GPIO_InitStruct.Pin = USBPower_Pin|RADIO_CS_Pin|rReset_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  LL_GPIO_Init(USBPower_GPIO_Port, &GPIO_InitStruct);
+  LL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
   /**/
   GPIO_InitStruct.Pin = STLINK_TX_Pin|STLINK_RX_Pin;
@@ -136,19 +142,19 @@ void MX_GPIO_Init(void)
   LL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = GreenLed_Pin;
+  GPIO_InitStruct.Pin = XL_CS_Pin|GreenLed_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  LL_GPIO_Init(GreenLed_GPIO_Port, &GPIO_InitStruct);
+  LL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /**/
   GPIO_InitStruct.Pin = LL_GPIO_PIN_8|LL_GPIO_PIN_9|LL_GPIO_PIN_10|LL_GPIO_PIN_11 
                           |LL_GPIO_PIN_12;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
   GPIO_InitStruct.Alternate = LL_GPIO_AF_12;
   LL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
@@ -156,7 +162,7 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = LL_GPIO_PIN_2;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
   GPIO_InitStruct.Alternate = LL_GPIO_AF_12;
   LL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 

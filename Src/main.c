@@ -38,19 +38,37 @@
   */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
+#include "rng.h"
+#include "spi.h"
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
+//#include "usart1.h"
+#include "lsm303c.h"
+#include "sx1278.h"
+
 #include "types.h"
 #include "sd.h"
+#include "text.h"
+
+#include "screen.h"
+#include "graph.h"
 
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+ui8  MagnetoReg;
+char TxBuffer[64];
+ui8 RxLen;
+ui8 RxData[64];
+si8 *Fields[16];
+ui8 GPSmobile;
+ui8 GPSData[64];
 
-ui8 SDData[2048];
+ui8 RadioVersion; 
 
 /* USER CODE END PV */
 
@@ -91,72 +109,112 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  SysTick_Config(SystemCoreClock / 1000);
+//  SysTick_Config(SystemCoreClock / 1000);
 
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_SPI1_Init();
+  MX_RNG_Init();
+  MX_SPI2_Init();
+  MX_SPI3_Init();
   /* USER CODE BEGIN 2 */
-  //MX_SDMMC1_SD_Init();
+ 
+ SET_BIT(SPI3->CR2, SPI_CR2_FRXTH);                   // 1/4 Fifo = 8-bit
+ SET_BIT(SPI3->CR1, SPI_CR1_BIDIOE);                  // Tx direction, clock off
+ SET_BIT(SPI3->CR1, SPI_CR1_SPE);                     // SPI3 On
+ //ScreenInit(0);
+ //Usart1RxOn();
+ //RadioInit();
+ //RadioVersion = RadioRead(REG_LR_VERSION);
   if ( SDInit() )
-   LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
+	{
+    LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
+	}
+  else
+	{
+//		if( 0 == SDTest() )
+			LL_GPIO_SetOutputPin(GreenLed_GPIO_Port, GreenLed_Pin);
+	}
 
-  for ( ui16 cnt = 0; cnt < 2048; cnt++ )  SDData[cnt] = 0xEE;
+ GPSmobile = 0;
+ RadioRxOn(); 
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
+ while (1)
   {
+   if ( (GPIOG->IDR & DIO0_Pin) ) 
+    {
+     switch ( RadioRegim ) 
+      {
+       case rgRadioRx :                 //Rx Radio ready
+         LL_GPIO_SetOutputPin(BlueLed_GPIO_Port, BlueLed_Pin);
+         RxLen = RadioRxLen();
+         RadioReadPacket(RadioBuffer, RxLen);
+         RadioBuffer[RxLen++] = RadioRSSI();
+         RadioBuffer[RxLen++] = RadioStatus;
+
+         if ( !GPSmobile )
+          {SPI1Write(RadioBuffer,RxLen);
+           RadioRxOn();
+          }
+         else
+          {
+          }
+         LL_GPIO_ResetOutputPin(BlueLed_GPIO_Port, BlueLed_Pin);
+       break;
+
+       case rgRadioTx :                 //Tx Radio done
+         LL_GPIO_ResetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
+         RadioStatus = RadioRead(LR_RegIrqFlags);
+
+         RadioLoRaClearIrq();                      //Clear irq
+         RadioStandby();                           
+
+         if ( GPSmobile )
+           RadioTimeOut  = 50;
+         else
+           RadioRxOn();
+
+       break;
+      } 
+    }
+
    if ( Button1_GPIO_Port->IDR & Button1_Pin )
     {
      LL_GPIO_ResetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
      LL_GPIO_SetOutputPin(BlueLed_GPIO_Port, BlueLed_Pin);
+  
+/* 	$$$magneto off
+     sprintf(TxBuffer,"X=%+8d Y=%+8d Z=%+7d",100,200,300); 
+     SPI1Write((ui8*)TxBuffer,32);
+     if ( SDTest() )
+       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
+     else
+       LL_GPIO_SetOutputPin(GreenLed_GPIO_Port, GreenLed_Pin);
+*/
 
-     if ( SDReadBlocks(SDData, 35, 1) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
-     if ( SDReadBlocks(SDData, 36, 1) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
+     static ui8 color = 0;
+     ScreenInit(color);
+     FillRect(1,1, 130, 130, color+1);
+     FillRect(50,50, 130, 130, color+2);
+     FillRect(100,100, 130, 130,color+3);
+     Line(200,200,100,100,color+4);
+		 Circle(120, 200, 50, color);
+     PrintStr("Hello World!", 3, 21, FONT_NORMAL, color+4);
+     ScreenTransmit();
+     color++;
+     color &= 7;
 
-     if ( SDReadBlocks(SDData, 35, 2) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
-     if ( SDReadBlocks(SDData, 37, 2) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
-
-     for ( ui16 cnt = 0; cnt < 2048; cnt++ )  SDData[cnt] = 0x55;
-
-     if ( SDWriteBlocks(SDData, 35, 2) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
-
-     for ( ui16 cnt = 0; cnt < 2048; cnt++ )  SDData[cnt] = 0xAA;
-     if ( SDWriteBlocks(SDData, 37, 2) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
-
-     for ( ui16 cnt = 0; cnt < 2048; cnt++ )  SDData[cnt] = 0;
-     if ( SDReadBlocks(SDData, 35, 2) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
-
-
-     for ( ui16 cnt = 0; cnt < 2048; cnt++ )  SDData[cnt] = 0;
-     if ( SDReadBlocks(SDData, 37, 2) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
-
-     if ( SDErase(36, 37) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
-
-     if ( SDReadBlocks(SDData, 35, 2) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
-     if ( SDReadBlocks(SDData, 37, 2) )
-       LL_GPIO_SetOutputPin(RedLed_GPIO_Port, RedLed_Pin);
 
      LL_GPIO_ResetOutputPin(BlueLed_GPIO_Port, BlueLed_Pin);
-     LL_GPIO_SetOutputPin(GreenLed_GPIO_Port, GreenLed_Pin);
-
      while (Button1_GPIO_Port->IDR & Button1_Pin )
-      {
-      }
+      {}
      LL_GPIO_ResetOutputPin(GreenLed_GPIO_Port, GreenLed_Pin);
     }
 
@@ -225,6 +283,10 @@ void SystemClock_Config(void)
 
   LL_RCC_PLL_ConfigDomain_SYS(LL_RCC_PLLSOURCE_HSI, LL_RCC_PLLM_DIV_2, 25, LL_RCC_PLLR_DIV_2);
 
+  LL_RCC_PLL_ConfigDomain_48M(LL_RCC_PLLSOURCE_HSI, LL_RCC_PLLM_DIV_2, 25, LL_RCC_PLLQ_DIV_8);
+
+  LL_RCC_PLL_EnableDomain_48M();
+
   LL_RCC_PLL_EnableDomain_SYS();
 
   LL_RCC_PLL_Enable();
@@ -265,6 +327,8 @@ void SystemClock_Config(void)
   LL_SYSTICK_SetClkSource(LL_SYSTICK_CLKSOURCE_HCLK);
 
   LL_SetSystemCoreClock(100000000);
+
+  LL_RCC_SetRNGClockSource(LL_RCC_RNG_CLKSOURCE_PLL);
 
   /* SysTick_IRQn interrupt configuration */
   NVIC_SetPriority(SysTick_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));

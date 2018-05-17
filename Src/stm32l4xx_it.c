@@ -36,6 +36,7 @@
 
 /* USER CODE BEGIN 0 */
 uint32_t MainTick = 0;
+extern __IO uint8_t WaitSPI1;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -64,6 +65,25 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32l4xx.s).                    */
 /******************************************************************************/
+
+/**
+* @brief This function handles DMA1 channel3 global interrupt.
+*/
+void DMA1_Channel3_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel3_IRQn 0 */
+ LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_3);
+ LL_DMA_ClearFlag_TC3(DMA1);
+ while ( SPI1->SR & SPI_SR_BSY )                      // Wail last byte transfer
+  {}
+ CLEAR_BIT(SPI1->CR1, SPI_CR1_SPE);                   // SPI Off
+ WaitSPI1 = 0;
+  /* USER CODE END DMA1_Channel3_IRQn 0 */
+  
+  /* USER CODE BEGIN DMA1_Channel3_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel3_IRQn 1 */
+}
 
 /* USER CODE BEGIN 1 */
 

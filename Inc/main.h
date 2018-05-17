@@ -42,6 +42,7 @@
 #define __MAIN_H__
 
 /* Includes ------------------------------------------------------------------*/
+#include "stm32l4xx_ll_dma.h"
 #include "stm32l4xx_ll_crs.h"
 #include "stm32l4xx_ll_rcc.h"
 #include "stm32l4xx_ll_bus.h"
@@ -50,7 +51,8 @@
 #include "stm32l4xx_ll_cortex.h"
 #include "stm32l4xx_ll_utils.h"
 #include "stm32l4xx_ll_pwr.h"
-#include "stm32l4xx_ll_dma.h"
+#include "stm32l4xx_ll_rng.h"
+#include "stm32l4xx_ll_spi.h"
 #include "stm32l4xx.h"
 #include "stm32l4xx_ll_gpio.h"
 
@@ -62,12 +64,16 @@
 
 #define Button1_Pin LL_GPIO_PIN_13
 #define Button1_GPIO_Port GPIOC
+#define MAG_CS_Pin LL_GPIO_PIN_12
+#define MAG_CS_GPIO_Port GPIOB
 #define RedLed_Pin LL_GPIO_PIN_14
 #define RedLed_GPIO_Port GPIOB
 #define STLK_RX_Pin LL_GPIO_PIN_8
 #define STLK_RX_GPIO_Port GPIOD
 #define STLK_TX_Pin LL_GPIO_PIN_9
 #define STLK_TX_GPIO_Port GPIOD
+#define DISPLAY_BUSY_Pin LL_GPIO_PIN_14
+#define DISPLAY_BUSY_GPIO_Port GPIOD
 #define USBOver_Pin LL_GPIO_PIN_5
 #define USBOver_GPIO_Port GPIOG
 #define USBPower_Pin LL_GPIO_PIN_6
@@ -76,12 +82,20 @@
 #define STLINK_TX_GPIO_Port GPIOG
 #define STLINK_RX_Pin LL_GPIO_PIN_8
 #define STLINK_RX_GPIO_Port GPIOG
+#define XL_CS_Pin LL_GPIO_PIN_6
+#define XL_CS_GPIO_Port GPIOC
 #define GreenLed_Pin LL_GPIO_PIN_7
 #define GreenLed_GPIO_Port GPIOC
 #define TMS_Pin LL_GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin LL_GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
+#define RADIO_CS_Pin LL_GPIO_PIN_12
+#define RADIO_CS_GPIO_Port GPIOG
+#define DIO0_Pin LL_GPIO_PIN_13
+#define DIO0_GPIO_Port GPIOG
+#define rReset_Pin LL_GPIO_PIN_15
+#define rReset_GPIO_Port GPIOG
 #define SWO_Pin LL_GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
 #define BlueLed_Pin LL_GPIO_PIN_7
